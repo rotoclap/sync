@@ -1,6 +1,5 @@
 # -*- coding:utf-8 -*-
 from datetime import datetime
-from email.mime.text import MIMEText
 
 import argparse
 import filesystem
@@ -8,7 +7,6 @@ import logging
 import os.path
 import posixpath
 import pytz
-import smtplib
 
 class Sync:
     """Classe permettant de synchroniser deux répertoires"""
@@ -184,7 +182,7 @@ class Sync:
                 if side == "left":
                     # Modification de la date de modification pour correspondre
                     # à celle du fichier source
-                    abs_path = posixpath.join(self.dirLeft.basepath, path)
+                    abs_path = posixpath.join(self.dirLeft.fs.basepath, path)
 
                     utc_mtime = pytz.utc.localize(
                         datetime.fromtimestamp(self.dirLeft.fs.stat(abs_path).st_mtime))
@@ -197,7 +195,7 @@ class Sync:
                 elif side == "right":
                     # Modification de la date de modification pour correspondre
                     # à celle du fichier source
-                    abs_path = posixpath.join(self.dirRight.basepath, path)
+                    abs_path = posixpath.join(self.dirRight.fs.basepath, path)
 
                     utc_mtime = pytz.utc.localize(
                         datetime.fromtimestamp(self.dirRight.fs.stat(abs_path).st_mtime))
@@ -256,7 +254,8 @@ class SyncConfiguration:
 
 class SyncDirectory:
     def __init__(self, basepath):
-        self.attachFileSystem(basepath)
+        self.fs = None
+        self.basepath = basepath
 
     def __str__(self):
         return self.basepath
@@ -311,19 +310,21 @@ class SyncDirectory:
 
     def attachFileSystem(self, path):
         self.fs = filesystem.getFileSystem(path)
-        self.basepath = self.fs.basepath
 
     def scan(self):
+        if not self.fs:
+            self.attachFileSystem(self.basepath)
+        
         self._dirs = dict()
         self._files = dict()
 
-        for root, _dirs, _files in self.fs.walk(self.basepath):
+        for root, _dirs, _files in self.fs.walk(self.fs.basepath):
             for _dir in _dirs:
                 path = os.path.join(root, _dir).replace("\\", "/")
                 
                 stat = self.fs.stat(path)
 
-                path = posixpath.relpath(path, self.basepath)
+                path = posixpath.relpath(path, self.fs.basepath)
 
                 self._dirs[path] = {
                     "size": stat.st_size,
@@ -335,7 +336,7 @@ class SyncDirectory:
 
                 stat = self.fs.stat(path)
 
-                path = posixpath.relpath(path, self.basepath)
+                path = posixpath.relpath(path, self.fs.basepath)
 
                 self._files[path] = {
                     "size": stat.st_size,
@@ -414,19 +415,6 @@ print("\n> Analyse des paramètres de la ligne de commande...")
 config = SyncConfiguration(parser)
 print("Terminé.")
 
-# Envoi du mail du début de synchronisation
-try:
-    smtp = smtplib.SMTP("SFME0002.amt-prd.cam")
-    
-    msg = MIMEText("La synchronisation des dossiers a débuté.\n{}".format(config))
-    msg["Subject"] = "[Python][SYNC] swmupatpil01.zres.ztech - Démarrage"
-    msg["From"] = "lionel.rota-ext@ca-technologies.fr"
-    msg["To"] = "lionel.rota-ext@ca-technologies.fr"
-
-    smtp.send_message(msg)
-    smtp.quit()
-except (socket.gaierror, ConnectionRefusedError): pass
-
 ### Initialisation de la log
 print("\n> Initialisation du module de log...")
 log = logging.getLogger(__name__)
@@ -488,16 +476,3 @@ print("Terminé.")
 print("\n> Synchronisation des dossiers...")
 sync.sync()
 print("Terminé.")
-
-# Envoi du mail de fin de synchronisation
-try:
-    smtp = smtplib.SMTP("SFME0002.amt-prd.cam")
-    
-    msg = MIMEText("La synchronisation des dossiers s'est terminée.\n{}".format(config))
-    msg["Subject"] = "[Python][SYNC] swmupatpil01.zres.ztech - OK"
-    msg["From"] = "lionel.rota-ext@ca-technologies.fr"
-    msg["To"] = "lionel.rota-ext@ca-technologies.fr"
-
-    smtp.send_message(msg)
-    smtp.quit()
-except (socket.gaierror, ConnectionRefusedError): pass
