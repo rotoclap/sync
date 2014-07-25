@@ -106,7 +106,10 @@ class DictCache():
         self._cache[key] = obj
 
     def __getitem__(self, key):
-        return self._cache[key]
+        try:
+            return self._cache[key]
+        except KeyError:
+            return
 
     def __delitem__(self, key):
         self._cache.pop(key)

@@ -240,7 +240,9 @@ class FTPFileSystem(FileSystem):
 
     def makedirs(self, path): 
         path = posixpath.join(self.basepath, path)
-        self.ftp.makedirs(path)
+        try:
+            self.ftp._session.mkd(path)
+        except: pass
 
     def rmdir(self, path): pass
 

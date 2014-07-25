@@ -54,7 +54,7 @@ class Sync:
 
         self._doRemoveFiles()
 
-        # Suppression des dossiers
+        # Suppression des dossiers        
         filesSide1, filesSide2 = self.dirsToRemove.values()
         if (len(filesSide1) + len(filesSide2)) > 0 :
             self.log.info("Suppression des dossiers...")
@@ -148,31 +148,31 @@ class Sync:
         for side, paths in self.dirsToRemove.items():
             for path in paths:
                 if side == "left":
+                    self.log.debug("[G] {}...".format(path))
                     self.dirLeft.fs.rmtree(path)
-                    self.log.debug("[G] {}".format(path))
                 elif side == "right":
+                    self.log.debug("[D] {}...".format(path))
                     self.dirRight.fs.rmtree(path)
-                    self.log.debug("[D] {}".format(path))
 
     def _doRemoveFiles(self):
         for side, paths in self.filesToRemove.items():
             for path in paths:
                 if side == "left":
+                    self.log.debug("[G] {}...".format(path))
                     self.dirLeft.fs.delete(path)
-                    self.log.debug("[G] {}".format(path))
                 elif side == "right":
+                    self.log.debug("[D] {}...".format(path))
                     self.dirRight.fs.delete(path)
-                    self.log.debug("[D] {}".format(path))
 
     def _doCopyDirs(self):
         for side, paths in self.dirsToCopy.items():
             for path in paths:
                 if side == "left":
+                    self.log.debug("[G] {}...".format(path))
                     self.dirRight.fs.makedirs(path)
-                    self.log.debug("[G] {}".format(path))
                 elif side == "right":
+                    self.log.debug("[D] {}...".format(path))
                     self.dirLeft.fs.makedirs(path)
-                    self.log.debug("[D] {}".format(path))
 
     def _doCopyFiles(self):
         tz_paris = pytz.timezone("Europe/Paris")
@@ -476,3 +476,4 @@ print("Terminé.")
 print("\n> Synchronisation des dossiers...")
 sync.sync()
 print("Terminé.")
+log.info("Synchronisation terminée.")
