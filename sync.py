@@ -474,6 +474,12 @@ print("Terminé.")
 
 # Synchronisation des dossiers
 print("\n> Synchronisation des dossiers...")
-sync.sync()
+
+try:
+    sync.sync()
+except Exception as e:
+    log.error("{}".format(e))
+    raise
+    
 print("Terminé.")
 log.info("Synchronisation terminée.")

@@ -235,7 +235,14 @@ class FTPFileSystem(FileSystem):
         self.supportedPathPatterns = [
             "^ftp://((.+):(.+)@)?([^:/]+)(:([0-9]{1,5}))?(/.+)*$"
         ]
-
+        
+    def keep_alive(self, *args, **kwargs):
+        try:
+            self.ftp.chdir(self.ftp.getcwd())
+        except ftputil.error.TemporaryError as e:
+            if "421" in str(e):
+                self.open_connection()
+        
     def mkdir(self, path): pass
 
     def makedirs(self, path): 
@@ -260,10 +267,19 @@ class FTPFileSystem(FileSystem):
     def write(self, filename, content=None, fd_content=None):
         filename = posixpath.join(self.basepath, filename)
         
-        fd = self.ftp.open(filename, "wb")
-        self.ftp.copyfileobj(fd_content, fd)
-        fd.close()
-
+        try:
+            fd = self.ftp.open(filename, "wb")
+            self.ftp.copyfileobj(fd_content, fd, callback=self.keep_alive)
+            fd_content.close()
+            fd.close()
+        except ftputil.error.TemporaryError as e:
+            if "421" in str(e):
+                self.open_connection()
+                fd = self.ftp.open(filename, "wb")
+                self.ftp.copyfileobj(fd_content, fd, callback=self.keep_alive)
+                fd_content.close()
+                fd.close()
+                
     def delete(self, filename): 
         filename = posixpath.join(self.basepath, filename)
         self.ftp.unlink(filename)
@@ -289,27 +305,32 @@ class FTPFileSystem(FileSystem):
 
         pattern, results = self.foundPathPattern(path)
 
-        user = "anonymous"
-        password = ""
-        port = 0
+        self.user = "anonymous"
+        self.password = ""
+        self.port = 21
 
         if results.group(2):
-            user = results.group(2)
-            password = results.group(3)
+            self.user = results.group(2)
+            self.password = results.group(3)
 
-        server = results.group(4)
+        self.server = results.group(4)
 
         if results.group(6):
-            port = int(results.group(6))
+            self.port = int(results.group(6))
 
         if results.group(7):
             self.basepath = results.group(7)
-
+            
+        self.open_connection()
+            
+        return self
+    
+    def open_connection(self):
         self.ftp = ftputil.FTPHost(
-            host=server, 
-            port=port, 
-            user=user, 
-            password=password, 
+            host=self.server, 
+            port=self.port, 
+            user=self.user, 
+            password=self.password, 
             session_factory=ftputil_custom.FTPSession)
         self.ftp._stat = ftputil_custom._StatMLSD(self.ftp)
         self.ftp.chdir(self.basepath)
