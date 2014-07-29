@@ -235,6 +235,7 @@ class FTPFileSystem(FileSystem):
         self.supportedPathPatterns = [
             "^ftp://((.+):(.+)@)?([^:/]+)(:([0-9]{1,5}))?(/.+)*$"
         ]
+        self._stat_cache = None
         
     def keep_alive(self, *args, **kwargs):
         try:
@@ -246,6 +247,8 @@ class FTPFileSystem(FileSystem):
     def mkdir(self, path): pass
 
     def makedirs(self, path): 
+        self.keep_alive()
+        
         path = posixpath.join(self.basepath, path)
         try:
             self.ftp._session.mkd(path)
@@ -254,10 +257,14 @@ class FTPFileSystem(FileSystem):
     def rmdir(self, path): pass
 
     def rmtree(self, path):
+        self.keep_alive()
+        
         path = posixpath.join(self.basepath, path)
         self.ftp.rmtree(path, ignore_errors=True)
 
     def open(self, path, mode): 
+        self.keep_alive()
+        
         path = posixpath.join(self.basepath, path)
 
         return self.ftp.open(path, "rb")
@@ -265,26 +272,22 @@ class FTPFileSystem(FileSystem):
     def read(self, filename): pass
 
     def write(self, filename, content=None, fd_content=None):
+        self.keep_alive()
         filename = posixpath.join(self.basepath, filename)
         
-        try:
-            fd = self.ftp.open(filename, "wb")
-            self.ftp.copyfileobj(fd_content, fd, callback=self.keep_alive)
-            fd_content.close()
-            fd.close()
-        except ftputil.error.TemporaryError as e:
-            if "421" in str(e):
-                self.open_connection()
-                fd = self.ftp.open(filename, "wb")
-                self.ftp.copyfileobj(fd_content, fd, callback=self.keep_alive)
-                fd_content.close()
-                fd.close()
+        fd = self.ftp.open(filename, "wb")
+        self.ftp.copyfileobj(fd_content, fd, callback=self.keep_alive)
+        fd_content.close()
+        fd.close()
                 
     def delete(self, filename): 
+        self.keep_alive()
+        
         filename = posixpath.join(self.basepath, filename)
         self.ftp.unlink(filename)
 
     def utime(self, path, times):
+        self.keep_alive()
         path = posixpath.join(self.basepath, path)
 
         mtime = datetime.utcfromtimestamp(times[1]).strftime("%Y%m%d%H%M%S")
@@ -332,7 +335,15 @@ class FTPFileSystem(FileSystem):
             user=self.user, 
             password=self.password, 
             session_factory=ftputil_custom.FTPSession)
-        self.ftp._stat = ftputil_custom._StatMLSD(self.ftp)
+        
+        if self._stat_cache == None:
+            self._stat_cache = ftputil_custom._StatMLSD(self.ftp)
+        else:
+            _cache = self._stat_cache._lstat_cache
+            self._stat_cache = ftputil_custom._StatMLSD(self.ftp)
+            self._stat_cache._lstat_cache = _cache
+        
+        self.ftp._stat = self._stat_cache
         self.ftp.chdir(self.basepath)
 
         return self
