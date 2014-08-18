@@ -188,10 +188,11 @@ class Sync:
                         datetime.fromtimestamp(self.dirLeft.fs.stat(abs_path).st_mtime))
                     local_mtime = utc_mtime.astimezone(tz_paris).timestamp()
                     
+                    self.log.debug("[G] {}...".format(path))
+                    
                     self.dirRight.fs.write(path, fd_content=self.dirLeft.fs.open(path, "rb"))
                     self.dirRight.fs.utime(path, (local_mtime, local_mtime))
-
-                    self.log.debug("[G] {}".format(path))
+                    
                 elif side == "right":
                     # Modification de la date de modification pour correspondre
                     # à celle du fichier source
@@ -201,10 +202,10 @@ class Sync:
                         datetime.fromtimestamp(self.dirRight.fs.stat(abs_path).st_mtime))
                     local_mtime = utc_mtime.astimezone(tz_paris).timestamp()
                     
+                    self.log.debug("[D] {}...".format(path))
+                    
                     self.dirLeft.fs.write(path, fd_content=self.dirRight.fs.open(path, "rb"))
                     self.dirLeft.fs.utime(path, (local_mtime, local_mtime))
-
-                    self.log.debug("[D] {}".format(path))
 
 class SyncConfiguration:
     """Classe stockant les différents paramètres de synchronisation"""
